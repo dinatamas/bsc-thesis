@@ -1,0 +1,178 @@
+# ============================================================================
+# Python 3.9 full grammar specification.
+# Purposeful deviations are highlighted in the grammar.
+# Missing features:
+#     - Type hints, comments, annotations, etc. are not supported.
+#     - Only basic number and string literals are supported.
+#     - Line joining not supported (implicit or explicit).
+#     - Async and await are not supported.
+# Note: Some restrictions are not enforced by CPython's grammar.
+# ============================================================================
+
+# The only supported input type is file input.
+file_input = @START, WS, *(compound_stmt, WS, @KEEP_INDENT
+                           | simple_stmt, WS, @KEEP_INDENT, @NEWLINE), @END;
+
+decorator = '@', namedexpr_test, >'\n', @KEEP_INDENT, @NEWLINE;
+decorators = +decorator;
+decorated = decorators, (classdef | funcdef);
+
+funcdef = 'def', ws, NAME, ws, parameters, ws, ':', suite;
+
+parameters = '\(', ws, ?(tv_arglist, ws), '\)';
+
+# Argument handling is simplified (merged typedarglist and vararglist).
+tv_arglist = tv_arguments, ws, ?('\*', NAME, ws), ?('\*\*', NAME);
+tv_arguments = tv_argument, ws, *(',', ws, tv_argument, ws), ?',';
+tv_argument = NAME, ws, ?('=', ws, test);
+
+stmt = compound_stmt | simple_stmt;
+simple_stmt = small_stmt, ws, *(';', ws, ?(small_stmt, ws)), >'\n';
+small_stmt = del_stmt | pass_stmt | flow_stmt | import_stmt | global_stmt | nonlocal_stmt | assert_stmt | expr_stmt;
+expr_stmt = testlist_star_expr, ws, ?(
+                augassign, ws, (yield_expr | testlist)
+             | *('=', ws, (yield_expr | testlist_star_expr), ws));
+testlist_star_expr = (test | star_expr), ws, *(',', ws, (test | star_expr), ws), ?',';
+augassign = '\+=' | '\-=' | '\*=' | '@=' | '/=' | '%=' | '\&=' | '\|=' | '\^=' | '<<=' | '>>=' | '\*\*=' | '//=';
+del_stmt = 'del', ws, exprlist;
+pass_stmt = 'pass';
+flow_stmt = break_stmt | continue_stmt | return_stmt | raise_stmt | yield_stmt;
+break_stmt = 'break';
+continue_stmt = 'continue';
+return_stmt = 'return', ws, ?(testlist_star_expr);
+yield_stmt = yield_expr;
+raise_stmt = 'raise', ws, ?(test, ws, ?('from', ws, test));
+import_stmt = import_name | import_from;
+import_name = 'import', ws, dotted_as_names;
+import_from = 'from', ws, (dotted_name | +('\.'), ?(dotted_name)), ws, 'import', ws, ('\*' | '\(', ws, import_as_names, ws, '\)' | import_as_names);
+import_as_name = NAME, ws, ?('as', ws, NAME);
+dotted_as_name = dotted_name, ws, ?('as', ws, NAME);
+import_as_names = import_as_name, ws, *(',', ws, import_as_name, ws), ?',';
+dotted_as_names = dotted_as_name, ws, *(',', ws, dotted_as_name, ws);
+dotted_name = NAME, *('\.', NAME);
+global_stmt = 'global', ws, NAME, ws, *(',', ws, NAME, ws);
+nonlocal_stmt = 'nonlocal', ws, NAME, ws, *(',', ws, NAME, ws);
+assert_stmt = 'assert', ws, test, ws, ?(',', ws, test);
+
+compound_stmt = if_stmt | while_stmt | try_stmt | with_stmt | funcdef | classdef | decorated;
+if_stmt = 'if', ws, namedexpr_test, ws, ':', suite, *('elif', ws, namedexpr_test, ws, ':', suite), ?('else', ws, ':', suite);
+while_stmt = 'while', ws, namedexpr_test, ws, ':', suite, ?('else', ws, ':', suite);
+try_stmt = 'try', ws, ':', suite,
+           (+(except_clause, ws, ':', suite),
+              ?('else', ws, ':', suite),
+              ?('finally', ws, ':', suite) |
+          'finally', ws, ':', suite);
+with_stmt = 'with', ws, namedexpr_test, ws, ':', suite, ?('else', ws, ':', suite);
+with_item = test, ws, ?('as', ws, NAME);
+except_clause = 'except', ws, ?(test, ws, ?('as', ws, NAME));
+suite = simple_stmt, WS | >'\n', WS, @MORE_INDENT, +(@KEEP_INDENT, @NEWLINE, stmt, WS), @LESS_INDENT, @NEWLINE;
+namedexpr_test = test, ws, ?(':=', ws, test);
+test = or_test, ws, ?('if', ws, or_test, ws, 'else', ws, test) | lambdef;
+test_nocond = or_test | lambdef_nocond;
+lambdef = 'lambda', ws, ?(tv_arglist, ws), ':', ws, test;
+lambdef_nocond = 'lambda', ws, ?(tv_arglist, ws), ':', ws, test_nocond;
+or_test = and_test, ws, *('or', ws, and_test, ws);
+and_test = not_test, ws, *('and', ws, not_test, ws);
+not_test = 'not', ws, not_test | comparison;
+comparison = expr, ws, *(comp_op, ws, expr, ws);
+comp_op = '==' | '<=' | '>=' | '<>' | '!=' | '<' | '>' | 'in' | 'not', ws, 'in' | 'is', ws, ?'not';
+star_expr = '\*', ws, expr;
+expr = xor_expr, ws, *('\|', ws, xor_expr, ws);
+xor_expr = and_expr, ws, *('\^', ws, and_expr, ws);
+and_expr = shift_expr, ws, *('\&', ws, shift_expr, ws);
+shift_expr = arith_expr, ws, *(('<<' | '>>'), ws, arith_expr, ws);
+arith_expr = term, ws, *(('\+' | '\-'), ws, term, ws);
+term = factor, ws, *(('\*' | '@' | '/' | '%' | '//'), ws, factor, ws);
+factor = ('\+' | '\-' | '\~'), ws, factor | power;
+power = atom_expr, ws, ?('\*\*', ws, factor, ws);
+atom_expr = atom, *(trailer);
+atom = '\(', ws, ?((yield_expr | testlist_comp), ws), '\)'
+     | '\[', ws, ?(testlist_comp, ws), '\]'
+     | '\{', ws, ?(dictorsetmaker, ws), '\}'
+     | '\.\.\.' | 'True' | 'False' | 'None' | NAME | STRING | NUMBER;
+testlist_comp = (namedexpr_test | star_expr), ws, ?(comp_for | *(',', ws, (namedexpr_test | star_expr), ws), ?',');
+trailer = '\(', ws, ?(arglist, ws), '\)' | '\[', ws, subscriptlist, ws, '\]' | '\.', NAME;
+subscriptlist = subscript, ws, *(',', ws, subscript, ws), ?',';
+subscript = test, ws, ?(':', ws, ?(test))
+          | ':', ws, test;
+exprlist = (expr | star_expr), ws, *(',', ws, (expr | star_expr), ws), ?',';
+testlist = test, ws, *(',', ws, test, ws), ?',';
+dictorsetmaker = test, ws, (
+                    ':', ws, test, ws, (comp_for | *(',', ws, (test, ws, ':', ws, test | '\*\*', ws, test), ws), ?',')
+                  | (comp_for | *(',', ws, (test | star_expr), ws), ?','))
+               | '\*\*', ws, test, ws, (comp_for | *(',', ws, (test, ws, ':', ws, test | '\*\*', ws, test), ws), ?',')
+               | star_expr, ws, (comp_for | *(',', ws, (test | star_expr), ws), ?',');
+
+classdef = 'class', ws, NAME, ?('\(', ws, ?(arglist, ws), '\)'), ws, ':', suite;
+
+arglist = argument, ws, *(',', ws, argument, ws), ?',';
+argument = test, ws, ?(':=', ws, test | '=', ws, test | comp_for)
+         | '\*\*', NAME
+         | '\*', NAME;  # Use NAME instead of test.
+
+comp_iter = comp_for | comp_if;
+comp_for = 'for', ws, exprlist, ws, 'in', ws, or_test, ws, ?comp_iter;
+comp_if = 'if', ws, test_nocond, ws, ?comp_iter;
+
+yield_expr = 'yield', ws, ?yield_arg;
+yield_arg = 'from', ws, test | testlist_star_expr;
+
+# Token definitions.
+NAME = '[a-zA-Z_][a-zA-Z_\d]*';
+STRING = STRING_SINGLE | STRING_DOUBLE;
+STRING_SINGLE = '\'((?:\\.|[^\'\\])*)\'';
+STRING_DOUBLE = '\"((?:\\.|[^\"\\])*)\"';
+NUMBER = '0|[1-9][0-9]*(?:(?:\.|,)[0-9]*)?|(?:\.|,)[0-9]+';
+
+# Whitespace definitions.
+WS = >*(' ' | '\n');  # Skip all whitespace.
+ws = >*' ';           # Skip inline whitespace.
+
+%{
+# --------------------------
+# Verbatim parser functions.
+# --------------------------
+
+def parse_START(state):
+    state.indent_level = 0
+    return TokenNode(Token('@ACTION', 'STARTMARKER', state.pos))
+
+def parse_NEWLINE(state):
+    return TokenNode(Token('@ACTION', 'NEWLINE', state.pos))
+
+def parse_KEEP_INDENT(state):
+    if state.indent_level != state.pos[1]:
+        return RhsActionNoMatch('Indentation error')
+
+def parse_MORE_INDENT(state):
+    if state.indent_level + 4 == state.pos[1]:
+        state.indent_level += 4
+        return TokenNode(Token('@ACTION', 'INDENT', state.pos))
+    return RhsActionNoMatch('Indentation error: INDENT expected')
+
+def parse_LESS_INDENT(state):
+    if state.indent_level - 4 == state.pos[1]:
+        state.indent_level -= 4
+        return TokenNode(Token('@ACTION', 'DEDENT', state.pos))
+    return RhsActionNoMatch('Indentation error: DEDENT expected')
+
+def parse_END(state):
+    if not state.curr.kinds == ['ENDMARKER']:
+        return RhsActionNoMatch('EOF expected')
+
+# ----------------------------
+# Verbatim unparser functions.
+# ----------------------------
+
+def unparse_STARTMARKER(state):
+    state.indent_level = 0
+
+def unparse_NEWLINE(state):
+    state.emit('\n' + state.indent_level * ' ')
+
+def unparse_INDENT(state):
+    state.indent_level += 4
+
+def unparse_DEDENT(state):
+    state.indent_level -= 4
+}%
