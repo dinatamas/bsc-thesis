@@ -1,9 +1,3 @@
-# Python byte-compiled files.
-__pycache__/
-
-# SASN input files.
-*.json
-
 # SASN output files.
 *.log
 *.pickle

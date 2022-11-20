@@ -1,6 +1,8 @@
 # SASN - Simple Abstract Syntax Parser
 
-## Használati útmutató
+Note: Content under the `thesis/` directory is in Hungarian.
+
+## Usage
 
 * `sudo systemctl start docker`
 * `sudo docker build -t sasn .`
