@@ -1,0 +1,531 @@
+\documentclass[12pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{blindtext}
+\usepackage{titlesec}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{cite}
+\usepackage{amssymb}
+\usepackage{mathptmx}
+\usepackage{relsize}
+\usepackage{hyperref}
+\usepackage[toc,page]{appendix}
+
+
+\newcommand{\indication}[2]{\textcolor{#1}{\textbf{#2}}}
+\newcommand{\indicationBNF}[2]{\textcolor{#1}{\textbf{$<$#2$>$}}}
+\newcommand{\refThis}[2]{\hyperref[#1]{#2 \ref{#1}}}
+\newcommand{\component}[1]{$[$ #1 $]$}
+\newcommand{\makesym}[4]{ $\mathlarger{\mathlarger{#1}}_{#2}^{#3} #4 $}
+\newcommand{\insertPic}[3]
+{   %kép neve, meret, aláírás 
+        \begin{figure}[h!]				
+        \centering							
+        \includegraphics[scale=#2]{#1}
+        \caption{#3}						
+        \label{fig:#1}						
+        \end{figure}		
+}
+\renewcommand{\arraystretch}{2}
+
+
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    citecolor=red
+}
+\urlstyle{same}
+
+\titlespacing*{\section}{0pc}{1.5ex plus .1ex minus .2ex}{0pc}
+
+\title{\Huge{\textbf{Forming programming patterns by analyzing structured natural language task descriptions using a transition-based neural network}}}
+\author{\textbf{Richárd Rikk, Tamás Dina} \\ Eötvös Loránd University}
+\date{February 2020}
+
+\begin{document}
+
+\maketitle
+
+\section*{Abstract}
+    \blindtext[1]   
+
+\section{Introduction}
+    One of the major goals of software technology is to achieve faster and more effective development cycles. Complex systems can often be broken down into simpler subsystems, and eventually individual trivial tasks. Modularity is essential for big projects, and the field of software technology offers a great number of approaches for organization techniques. To further support development, means have been devised to automate the implementation of the relatively simple and straightforward tasks, where as part of the design process a specification is provided for the task and a software generates a program that solves the specified problem. Much research has already been conducted in the case where the description of the problem is in a mathematical form, however another approach is to use natural language to document the functionality, and use natural language processing and machine learning algorithms to generate the solution. The state-of-the-art implementation of such a software is TranX\cite{TranX}, a language-independent semantic parser and code generation tool which has demonstrated high accuracy on a number of datasets.
+    Our research is directed towards a well-documented set of problems, namely those that can be solved trivially with programming theorems\cite{ProgT}. This allows for a unified approach to some of the most common tasks while still being general enough to see potential use. The automatic solution of these problems is straightforward when a mathematical specification is provided, however a natural language approach offers more flexibility and ease of use. Queries that describe such tasks and programs that solve them are easy to generate in great numbers using a BNF grammar that we have written for this purpose. These generated examples serve as our dataset for training, and a number of manually curated examples serve as the testing dataset. These exercises are taken partly from the English language national school-leaving examination for high school students (called the Érettségi).
+    The natural language for the queries is English, while the output programs are generated in Python, however TranX uses an internal and universal intermediate meaning representation therefore this can be changed easily if so desired.
+
+\section{Problem Formulation}
+
+\subsection{Semantic Parsing}\label{sec:parsing}
+
+The general task of semantic parsing consists of mapping a natural language query to a corresponding formal meaning representation. This can be formalized as finding the relation $\varphi \subseteq NLQ \times FMR$, where for a given query $q$ a representation $r$ corresponds to $q$ if $r \in \varphi(q)$.
+
+For the purposes of this paper, a $q = w_{1} ... w_{|q|} \in NLQ$ query is a correctly formulated body of text in a given natural language, expressed as a sequence of words. An $r = s_{1} ... s_{|r|} \in FMR$ representation is a sequence of terminal symbols that is valid in a given formal language.
+
+The relationship captured by $\varphi$ is semantic by nature. When $(q, r)$ is an element of $\varphi$, it is intended to imply that the human-understood meaning of $q$ can be equated with the machine-understandable $r$.
+
+This paper will be using standard British English as the input natural language and Python 3.8 as the output formal meaning representation.
+
+\subsection{Intent Parsing}
+
+Intent parsing is a special case of semantic parsing. In intent parsing, the meaning of $q$ is the object of the intention, the action intended to be carried out. The form in which this meaning is to be represented after semantic parsing is such that the original action may be performed based solely on the representation.
+
+Intent parsing can be used to model the semantic transition that takes place when writing a computer program. The programmer has an action in mind that is to be performed by the computer upon running the program. This action's description is already formulated by the programmer in a natural language before it is implemented in a programming language.
+
+In this paper, a natural language description of a programming task (an action to be performed by a computer) serves as the input, and a program that solves the described task (performs the required action) is the output.
+
+\subsection{Analysis of $\varphi$}
+
+Using the above refinement of the task of semantic parsing, the following is a short analysis of the properties of $\varphi$:
+
+\begin{itemize}[noitemsep]
+	\item $\varphi$ is not left-total: Not all possible queries are valid task descriptions, and not all tasks have solutions.
+	\item $\varphi$ is right-total: All programs have at least one corresponding query.
+	\item $\varphi$ is not left-unique: A program may have more than one corresponding description.
+	\item $\varphi$ is not right-unique: A natural language query may have more than one corresponding program.
+\end{itemize}
+
+\section{Programming patterns}\label{sec:pattern}
+    Programming patterns are generic programs which can solve generic tasks. The task($T$) and the pattern($P$) can be paired by analyzing $T$. For example if the task is to sum items then $T$ must be paired with the summation pattern. If the task is to search an item then $T$ must be paired with the search pattern. Finding these $<T,P>$ pairs are crucial in order to solve the problem. Unfortunately it is not always easy to pair the task with the corresponding pattern if $T$ can be phrased with all the tools available in the English language.\\
+    The rest of section will be dedicated to define all the different programming patterns used in our project. In the definitions $A$ is the state space which contains all the relevant data and their types relevant to the problem. $Q$ is the precondition, it is true before the task is performed. $R$ is post condition which determines the relation between the input and the output.
+    
+    \paragraph{Summation:} Let us assume that $[m..n] \in \mathbb{Z}$ and $f:[m..n] \to H$ is given, where $H$ is an arbitrary set with a $+: H \times H \to H$ operation and with a neutral element $\underline{0}$ which means it satisfies the following: $\forall k \in H : k + \underline{0} = k$. This programming pattern is useful when values have to be accumulated in a range and it can be broadly used because it does not require a lot of presumption. \cite{Sum} showcases the power of this pattern. Unfortunately it can be hard to recognize this pattern because thanks to its broad usability it can occur in various ways, which makes it hard to identify the pattern in some task.    
+    \begin{tabbing}
+    \hspace*{0.5cm} \= \hspace*{0.5cm}  \= \hspace*{1.5cm}  \= \\
+    $A$ \> = \> $m:\mathbb{Z}$, $n:\mathbb{Z}$, $s:H$ \\ 
+    $Q$ \> = \> $m=m^{'} \land n=n^{'}$ \\
+    $R$ \> = \> $Q \land s = $ \makesym{\sum}{i=m..n}{}{f(i)} 
+    \end{tabbing}
+    
+    \paragraph{Count:} This pattern can be used when the task is that how many element  satisfy a condition. Let us assume that $cond : [m..n] \to \mathbb{L}$ is the condition function. 
+    \begin{tabbing}
+    \hspace*{0.5cm} \= \hspace*{0.5cm}  \= \hspace*{1.5cm}  \= \\
+    $A$ \> = \> $m:\mathbb{Z}$, $n:\mathbb{Z}$, $c:\mathbb{N}$ \\ 
+    $Q$ \> = \> $m=m^{'} \land n=n^{'}$ \\
+    $R$ \> = \> $Q \land c = $ \makesym{\sum}{\substack{i=m..n \\ cond(i)}}{}{1} 
+    \end{tabbing}
+    
+    \paragraph{Maximum search:} Let us assume that $f : [m..n] \to H$ and $cond : [m..n] \to \mathbb{L}$ is given, where $H$ is an arbitrary set with a relational operation, which can be used to order the elements. This pattern is used when $f$ maximum value is the question. If there is no condition for the given task, then $\forall i \in [m..n] : cond(i) = true$
+    \begin{tabbing}
+    \hspace*{0.5cm} \= \hspace*{0.5cm}  \= \hspace*{1.5cm}  \= \\
+    $A$ \> = \> $m:\mathbb{Z}$, $n:\mathbb{Z}$, $ind:\mathbb{Z}$, $max:H$, $l:\mathbb{L}$ \\ 
+    $Q$ \> = \> $m=m^{'} \land n=n^{'} \land m \leq n$ \\
+    $R$ \> = \> $Q \land max, ind, l = $ \makesym{MAX}{\substack{i=m..n \\ cond(i)}}{}{f(i)} 
+    \end{tabbing}
+    
+    \paragraph{Selection:} Let us assume that $cond : \mathbb{Z} \to \mathbb{L}$ and $m \in \mathbb{Z}$ is given. The task is to find $i$, where $i \geq m \land cond(i)$. $i$ must exist in the given range.
+    \begin{tabbing}
+    \hspace*{0.5cm} \= \hspace*{0.5cm}  \= \hspace*{1.5cm}  \= \\
+    $A$ \> = \> $m:\mathbb{Z}$, $i:\mathbb{Z}$ \\ 
+    $Q$ \> = \> $m=m^{'} \land \exists k \geq m : cond(k)$ \\
+    $R$ \> = \> $Q \land i = $ \makesym{SELECT}{\substack{i \geq m }}{}{cond(i)} 
+    \end{tabbing}
+    
+    \paragraph{Search:} Given a $cond : [m..n] \to \mathbb{L}$ function, the task is to find the first element which satisfies the condition. This version known as pessimistic linear search. There is a second version where the task is to decide if all elements satisfy the condition. This version called as optimistic linear search. First the pessimistic version will be specified and after that the optimistic.
+    \begin{tabbing}
+    \hspace*{0.5cm} \= \hspace*{0.5cm}  \= \hspace*{1.5cm}  \= \\
+    $A$ \> = \> $m:\mathbb{Z}$, $n:\mathbb{Z}$, $l:\mathbb{L}$, $ind : \mathbb{Z}$ \\ 
+    $Q$ \> = \> $m=m^{'} \land n=n^{'}$ \\
+    $R$ \> = \> $Q \land l, ind = $ \makesym{SEARCH}{\substack{i=[m..n]}}{}{cond(i)} 
+    \end{tabbing}
+    
+    \begin{tabbing}
+    \hspace*{0.5cm} \= \hspace*{0.5cm}  \= \hspace*{1.5cm}  \= \\
+    $A$ \> = \> $m:\mathbb{Z}$, $n:\mathbb{Z}$, $l:\mathbb{L}$ \\ 
+    $Q$ \> = \> $m=m^{'} \land n=n^{'}$ \\
+    $R$ \> = \> $Q \land l = $ \makesym{\forall SEARCH} {\substack{i=[m..n]}}{}{cond(i)} 
+    \end{tabbing}
+    
+ \section{The dataset}
+   Most of the neural networks require a lot of sample data to reliably work. Generally the more complex the problem, the more data needed to successfully train the network. It can be challenging to provide the required number of sample especially if big datasets and databases are not available to draw examples from for the given project. This is the case in our situation, for this a solution had to be implemented in order to meet both the quantity and quality requirements of the problem. Quantity is needed for the nature of the project and quality is needed to avoid the problem of overfitting\cite{overfit1, overfit2}, for our project this means that diverse examples have to be generated otherwise the neural network will only recognize tasks that are close to the ones that were used in the training process.\\  
+   Our dataset consist of pairs of tasks and snippets. Task is the description of the problem in English and the snippet is the code of a programming pattern in python for the given task. In other words the task description is the input and the snippet is a desired output for the network. In order to the supervised learning process\cite{super} to work thousands of examples needs to be generated. However if the task can be phrased with the English language without any restriction, then pairing the task with the proper pattern becomes troublesome. To avoid this problem a BNF-based\cite{BNF} grammar has been implemented which gives a proper tool for phrasing tasks in a way that the task description contains all the necessary information for matching it to the corresponding pattern.\\
+   This section will explain the structure of the task descriptions and explain how they can influence the pattern for the given task as well as how to connect the task with the corresponding pattern.
+
+    \subsection{Task descriptions}\label{sec:task}
+    \subsubsection{BNF rules to phrased task descriptions }\label{sub:rules}
+    Appropriately phrasing a task is crucial in finding the corresponding pattern to it. That is why a BNF-based grammar has been implemented to make it easier to bind the task and the pattern together. In order to better understand this process some of the rules of the grammar need to be highlighted.
+    
+    \insertPic{i-rule}{0.45}{The indicator rule (i-rule)}
+    The indicator rule (i-rule) defines the sets of the different tasks and helps link the given task to the correct pattern. However it is important to note that the value of the \verb|<indicator>| is only defines the type of the pattern (\refThis{sec:pattern}{Sec.}) but it is not enough to identify the exact pattern that needs to be used for the given task.
+    
+    \insertPic{c-rule}{0.45}{The conditions rule (c-rule)}
+    The conditions rule (c-rule) helps keeping the task descriptions diverse enough to avoid overfitting and with this simple rule more realistic tasks can be phrased.
+    
+    \insertPic{a-rule}{0.45}{The algorithm rule (a-rule)}
+    The algorithm rule (a-rule) describes the base structure of the task descriptions. It contains all the necessary information to identify the correct pattern which can be used to solve the given task. However this base by itself would not give diverse enough descriptions to be usable in a realistic programming environments, this is why the base can be expanded by adding more grammatical information to it. This extra information will increase the readability of the task descriptions by bringing closer to them to the English language. Furthermore the order of the components of the rule also can be changed to further increase the diversity and possibilities of the descriptions.  
+    
+    \subsubsection{Phrasing structured task descriptions}
+    \insertPic{task}{0.3}{Creating task descriptions and code}
+    On \refThis{fig:task}{Fig.} the process can be seen which is used to create the task descriptions and the code for the given task. In order to better understand the relationship between the task phrased with all the tools available in the English language and the structured task description let us start with the former. On \refThis{fig:task}{Fig.} the first question was phrased with English in a way which is understandable for everyone who is familiar with the language. This form of the task is easily understood by humans, but it is very hard to analyze with an algorithm or neural network. The reason behind this is that the form contains a lot of hidden information which are possessed by humans but not by computers. That is why text analyses with neural networks\cite{text1, text2} is a relevant field in computer science today, however we took a different approach. Instead of trying to analyze the task which would introduce another set of possible errors, changing the task has been tried. By fitting the original task to the a-rule the new task description preserves its understandability, but all the necessary information is available, these are underlined. It is important to note that the i-rule and the c-rule also have been used. The i-rule to help identify the correct type of pattern that is needed and the c-rule to simplify the condition by eliminating the hidden information for example that the gender field has to be examined. The latter rule especially useful when complex conditions have to be managed.\\
+    After changing the task to a structured BNF-based task description all the necessary information are available to link it to a programming pattern and create a code. Another advantage of these patterns that they are independent from the programming languages, which means they can be implemented in any other language if needed.
+    
+    \subsubsection{Task description templates}
+    On \refThis{fig:task}{Fig.} an example was shown how to create a task description and form code by using the necessary information from the description. However this is just one task, snippet pair for our neural network to learn from, but thousands of these examples needed to successfully train the network.\\
+    To solve this problem task templates have been introduced. \refThis{fig:temp}{Fig.} shows how to get a template from a task description and after that how to use this template to create code for it. Now this process will be presented to explain the simplicity and usefulness of this method. \\
+    Let us assume that task description is given but thousands of similar task needed to properly train the network. We can get task templates from task descriptions by identifying the important information in the later and changing it to the corresponding component in the a-rule. After identifying the role of the information in the task description changing it to the correct component is a simple task because the names of the components are corresponding to the role they are playing in the task. In the template every non a-rule component treated as strings marked by $S_1, S_2, ... ,S_n$ on \refThis{fig:temp}{Fig.}. These string are not used in the process of creating code for the given template they just provide some grammatical information in order to better understand the derived task. \\
+    Generating thousand of task and snippet pair from the template is easy. First the \verb|<indicator>| value is fixed using the i-rule. This is necessary in order to easily link the task and the needed programming pattern together. The task descriptions derive from the task template after in later values are assigned to its components from the a-rule. These possible values are randomly chosen for each component from its predefined set of possible values. It is possible that the \verb|<item>| and \verb|<item_property>| components appear in the conditions as well. In this case they do not acquire new values these components preserve theirs in one task description ignoring how many times they appear. Conversely the values of the components of the c-rule are different every time they appear. This is useful when dealing with complex conditions because diversity is a relevant factor in our case.\\
+    Snippet is created by using the same values than its coherent task description. The programming patterns are predefined including the positions that must be completed with relevant information from the given task. After linking the task and the pattern the process on \refThis{fig:task}{Fig.} is repeated. This is useful because the programming patterns can be implemented in any programming language if desired. This means that we can obtain a large sets of examples of task descriptions and language independent snippets, which will provide opportunity to easily train our neural network on multiple programming languages.
+
+    \insertPic{temp}{0.3}{The relationship between tasks, templates and programming patterns}
+    
+    \subsection{Linking task descriptions and programming patterns together}\label{sub:link}
+    Previous sections describe the structure of the dataset and how to create task descriptions from English sentences and form code for the descriptions by using programming patterns. However linking these task descriptions and programming patterns were not discussed. This section will provide the method for linking descriptions and patterns together. In order to better understand the process let us assume that the tasks and the patterns are sets of sets as showed on \refThis{fig:link}{Fig.}. For clarity each set will be discussed separately.\\
+    The set of tasks contains all the possible task descriptions which can be phrased using our BNF grammar. It contains five subset in these all task can be solved with the same type of pattern, but in one subset there can be multiple types of tasks. This subsets are called diverse sets. For example summation and assortment-based tasks are in the same subset. It means they both can be solved by one type of pattern with the pattern of summation in this case. It is important to note that note all subset is diverse set. The subsets are the following:\\
+    \begin{enumerate}[label = (\arabic*), noitemsep, leftmargin=1.5cm, topsep=0cm]
+            \item Summation \\ Assortment
+            \item Selection
+            \item Linear Search \\ Decision
+            \item Maximum Search
+            \item Count
+        \label{list:prog_theses}
+        \end{enumerate}
+    The set of patterns contains all the available types of patterns described in \refThis{sec:pattern}{Sec.}. In order to identify the proper type of pattern the value of the \verb|<indicator>| component is used. Thanks to that it is easy to connect the task with the correct type of pattern.\\
+    The type of pattern set contains all available code in a particular language for the given pattern. To identify the exact code template which has to be filled with task relevant information, the other components of the a-rule are used. For example if a task have \verb|<item_property>| and \verb|<conditions>| components then the code template is needed which also has these two components. Sometimes the \verb|<indicator>| component has to be checked once again if the task description is from a diverse set. Furthermore this set can contain code templates of different programming languages if an extra information is added which describes the preferred programming languages for the output snippet. This way our method is easily scalable because we can create snippets on different programming languages by only broadening this set.
+    \insertPic{link}{0.5}{Linking task descriptions with programming patterns}
+    
+    \subsection{Formalizing the linking process}
+    In \refThis{sub:link}{Sec.} the process was shown which is used to link the task descriptions and programming patterns together. This section will formalize this process using previously established notations. \refThis{sec:parsing}{Sec.} described the general idea behind semantic parsing, but in order to be useful this has to be specified.\\
+    Our goal is to find the relation $\varphi \subseteq NLQ \times FMR$. In order to do that additional sets need to be defined. $Tt$ is a set which contains all task templates that can be phrased using rules described in \refThis{sub:rules}{Sec.}, this means $Tt \subset E^{*}$ , where $E^{*}$ is a set which represents all queries phrased with the English language. $Tt$ has different subsets, these are described in \refThis{sub:link}{Sec.} and from now on they will be referred as $Tt_{i}$ where $i \in [1..5]$ is the index used to differentiate the subsets. $q \in Tt_{i}$ is a task template this also can be written as $q = q_1, q_2, ... , q_n$ where $\forall i \in [1…n] : q_i$ is token. However $q$ contains grammatical information which is not needed to link it to the corresponding programming pattern for this q has to be reduced in a way which ensures that $q^*$ does not contain unnecessary information. Using the following function it is easy to reduce $q$:
+ 
+    \begin{tabbing}
+    \hspace*{1.0cm} \= \hspace*{1.0cm}  \= \hspace*{1.0cm}  \= \\
+    $\varepsilon$ \> : \> $Tt \to Tt^{*} $ \\[0.5cm]
+    $\varepsilon(q)$ \> = \> \makesym{\bigoplus }{i=1..|q|}{}{f(q_i)}\\[0.5cm]
+    $f(x)$ \> = \> $\begin{cases} \mbox{x,} & \mbox{if }$
+    $x \in a-rule$ $\\
+    \mbox{" " ,} & \mbox{else} \end{cases} $\\ 
+    \end{tabbing}
+    
+    $Pp$ is a set which contains templates of programming patterns. The subsets of $Pp$ correspond to each programming pattern described in \refThis{sec:pattern}{Sec.}. Let us assume that $p_i \subset Pp$ where $i \in i-rule$. The $q^*$ reduced query can be linked to the correct $p_i$ by examining $i$ and $indicator \in q^*$ components. The corresponding subset for $q^*$ is the one where $i = indicator$.\\
+    $p_i \subset Pp$ is set of sets which contains all versions for the given programming pattern in a specific programming language in our case python. $t_{\gamma} \subset p_{i}$ is a set which contains one programming pattern with different structures. The structure defined by $\gamma$. For example if $r \in t_{\gamma}$ and $r = r_1, r_2, ..., r_k$ then $\gamma$ can be constructed by using $\gamma \subset { r_1, r_2, ..., r_k } $ where $\forall \gamma_i \in \gamma : \gamma_i \in a-rule$. This will give a unique structure data to every programming pattern. To match a $q \in Tt$ query to the correct $t_{\gamma}$ it is enough to compare $\gamma$ and $\varepsilon(q)$. This process will be marked by $\vartheta: Tt^* \to t_{\gamma} $.\\
+    After finding the correct programming pattern for the given task template values have to be selected for each component in the a-rule in both the pattern and the template. This process will be marked by $ \mu : Tt \times t_{\gamma} \to NLQ \times FMR$, where $t \in NLQ$ is task description and $p \in FMR$ is a snippet for $q$. \\
+    Finally, $ <NLQ,FMR> $ pairs can be constructed by using $q \in Tt$ with the following function composition: $\mu(q, (\vartheta(\varepsilon(q))))$. Therefore $\varphi \subseteq NLQ \times FMR$ relation can be written as a composition of the following functions: $\varphi = \mu \circ (q, \vartheta \circ \varepsilon(q))$.
+
+\section{Problem Model}
+
+\subsection{Path-Search Formulation}
+
+For a given query $q \in NLQ$, finding a corresponding formal meaning representation $r \in FMR$ can be reformulated as a path-search problem over a graph.
+
+Let $(N, \Sigma, P, S)$ be a finite formal grammar such that $FMR = \{ r \in \Sigma^{*} \ | \ S \Rightarrow^{*} r \}$. Consider the graph $G = (V, E)$ where the vertices are sentential forms $V = \{ \alpha \in (\Sigma \cup N)^{*} \ | \ S \Rightarrow^{*} \alpha \}$ and the edges constitute derivability relations $E = \{ (\alpha_{1}, \alpha_{2}) \in V \times V \ | \ \alpha_{1} \Rightarrow \alpha_{2} \}$. The task of mapping $q$ to $r \in FMR \subseteq V$ can be rephrased as finding a path starting from $S \in V$ leading to a suitable $r \in \varphi(q) \subseteq V$.
+
+This formulation already provides a graph model of the problem. However, this task is practically intractable with naive algorithms and further improvements are required.
+
+\subsection{Termination Constraints}
+
+There are three reasons that can cause an algorithm to fail to terminate while attempting to solve a path-search problem: infinite width, infinite depth and infinite loops.
+
+\textbf{\textsc{Infinite width}}\ \ \ The problem of infinite width occurs if and only if $\exists v \in V : |deg^{+}(v)| \geq |\mathbb{N}_{0}| $. To reformulate this in terms of the formal grammar that underlies the graph model: $\exists \alpha \in V : |\{ \beta \in V \ | \ \alpha \Rightarrow \beta \}| \geq |\mathbb{N}_{0}|$. It is not trivial to specify when exactly this may occur, however it is sufficient to ensure $\forall \alpha \in V : len(\alpha) < |\mathbb{N}_{0}|$ to avoid it. The proof follows from the fact that in this case there are only a finite number of substrings in $\alpha$ to be used as the left side of a finite number of grammar rules.
+
+\textbf{\textsc{Infinite depth}}\ \ \ The problem of infinite depth occurs if and only if an infinite path is present in the graph. The presence of infinite paths requires an infinite number of vertices, therefore by having $|V| < |\mathbb{N}_{0}|$ the problem of infinite depth is avoided. Note that in a finite grammar $(\forall \alpha \in V : len(\alpha) < |\mathbb{N}_{0}|) \Rightarrow (|V| < |\mathbb{N}_{0}|)$.
+
+\textbf{\textsc{Infinite loops}}\ \ \ The problem of infinite loops occurs if and only if a cycle is present in the graph: there exists an $(e_{1}, e_{2}, ..., e_{n}) \in E^{n}$ non-empty trail with vertex sequence $(v_{1}, v_{2}, ..., v_{n}, v_{1}) \in V^{n+1}$. Let $\alpha$ be the sentential form corresponding to $v_{1}$, then the above is equaivalent to having $\alpha \Rightarrow^{+} \alpha$. Trivially, if $G$ is a tree, infinite loops can't occur. More general constraints require the study of acyclic grammars. Some of the major results include: (1) regular grammars are always acyclic (2) context free grammars can always be transformed into an acyclic form without loss (3) acyclic context free grammars can be generalized to acyclic context senstive grammars (4) which have been shown to be equivalent to strictly monothonic context sensitive grammars. Any grammar that falls into one of the mentioned categories does not contain cycles.
+
+\section{Transition System}
+
+\subsection{Transition Process}
+
+A transition system $\tau$ is a bijective function from an arbitrary set $IMR$ to $FMR$. Using the transition system, one can solve the intent parsing task of finding an $r \in \varphi(q)$ for a given $q$ by finding an $a \in IMR$ for which $\tau(a) = r \in \varphi(q)$. In this sense, $IMR$ is the set of intermediate meaning representations, and the transition system is the method of conversion between them and the final outputs, the elements of $FMR$.
+
+\textbf{\textsc{Decomposition}}\ \ \ The transition system can take several steps to get from an $a \in IMR$ to an $r \in FMR$, and similarly, its inverse $\tau^{-1}$ can take these same steps in a backward order to perform the conversion in the other direction. This essentially means that the transition system is a function compisition $\tau = \tau_{n} \circ ... \circ \tau_{1}$ and $\tau^{-1} = \tau_{1}^{-1} \circ ... \circ \tau_{n}^{-1}$, where each $\tau_{i}$ is bijective.
+
+\textbf{\textsc{Transition Process}}\ \ \ In this paper, a transition system is utilized for which $\tau^{-1}$ works similarly to a compiler. $\tau_{5}^{-1}$ is a lexical scanner, which takes the sequence of words of a syntactically correct Python program, and transforms it into a sequence of tokens. $\tau_{4}^{-1}$ converts this token sequence into a parse tree, according to Python's full grammar specification. $\tau_{3}^{-1}$ transforms the parse tree into a more compact and easier-to-handle abstract syntax tree (AST), according to Python's abstract syntax grammar specification. So far, this process is equivalent to the functionality of CPython's parser module. $\tau_{2}^{-1}$ converts the Python AST to an isomorphic AST with a different underlying implementation. Finally, $\tau_{1}^{-1}$ outputs a sequence of tree-constructing actions that correspond to the leftmost generative story of the previous component's AST.
+
+\textbf{\textsc{Invertibility}}\ \ \ It is important to note that the above described transitions are usually not reversible, certain restrictions have to be put in place to ensure one-to-one correspondence. Having said that, the bijectivity of these functions is accepted to be given, and the specifics of how it is achieved is not discussed in detail here.
+
+\subsection{Intermediate Meaning Representation}
+
+\subsubsection{ASDL}
+
+The domain of $\tau$ is $IMR$, the set of AST constructing action sequences. The AST itself adheres to Python's abstract syntax grammar, which is specified using ASDL, the Abstract Syntax Description Language. A simplified version of ASDL is defined by the following EBNF description:
+
+\begin{verbatim}
+    grammar        = types;
+    types          = { type };
+    type           = name, "=", constructors;
+    constructors   = constructor, { "|", constructor };
+    constructor    = name, [ fields ];
+    fields         = "(", field, { ",", field }, ")";
+    field          = name, [ "?" | "*" ], [ name ];
+
+    letter         = "a" | ... | "Z";
+    alpha_num      = "_" | letter | "0" | ... | "9";
+    name           = letter, { alpha_num };
+\end{verbatim}
+
+\noindent
+Let's introduce the following predicates to capture the semantics of ASDL:
+
+\begingroup
+\allowdisplaybreaks
+\vspace{-.5cm}
+\begin{align*}
+Type(t) &= \text{"t is a type"} \\
+Prim(t) &= \text{"t is a primitive type"} \\
+Comp(t) &= \text{"t is a composite type"} \\
+Ctor(c) &= \text{"c is a constructor"} \\
+Field(f) &= \text{"f is a field"} \\
+SinField(f) &= \text{"f is a field with single cardinality"} \\
+OptField(f) &= \text{"f is a field with optional cardinality"} \\
+SeqField(f) &= \text{"f is a field with sequential cardinality"} \\
+CtorOf(c, t) &= \text{"c is a constructor of t"} \\
+FieldOf(f, c) &= \text{"f is a field of c"} \\
+TypeOf(t, f) &= \text{"t is the type of f"}
+\end{align*}
+\endgroup
+
+\noindent
+The following formulae state some of the basic properties of ASDL:
+
+\begingroup
+\allowdisplaybreaks
+\vspace{-.5cm}
+\begin{gather*}
+\forall t(Type(t) \iff Prim(t) \oplus Comp(t)) \\
+\forall t(Prim(t) \Rightarrow \nexists c(CtorOf(c, t))) \\
+\forall t(Comp(t) \Rightarrow \exists c(CtorOf(c, t))) \\
+\forall f(Field(f) \iff OneHot(SinField(f), OptField(f), SeqField(f))) \footnotemark \\
+\forall c \forall t(CtorOf(c, t) \Rightarrow Ctor(c) \land Type(t)) \\
+\forall f \forall c(FieldOf(f, c) \Rightarrow Field(f) \land Ctor(c)) \\
+\forall t \forall f(TypeOf(t, f) \Rightarrow Type(t) \land Field(f)) \\
+\forall f(\exists! t(TypeOf(t, f)))
+\end{gather*}
+\endgroup
+
+\footnotetext{$OneHot(p, q, r) := (p \land \lnot q \land \lnot r) \lor (\lnot p \land q \land \lnot r) \lor (\lnot p \land \lnot q \land r)$}
+
+\noindent
+An ASDL description's semantics can be regarded as a sequence of formulae that (1) create types, constructors and fields (2) determine field cardinalities (3) establish $CtorOf$, $FieldOf$ and $TypeOf$ relationships.
+
+\subsubsection{ASDL-based Abstract Syntax Trees}
+
+An ASDL description defines a grammar. The sentences of a grammar defined by an ASDL description can be transformed from and to ASTs, as is done by $\tau_{2}$ and $\tau_{3}$. These ASTs build upon the constructs of the ASDL description.
+
+\noindent
+Let's introduce the following new predicates:
+
+\vspace{-.5cm}
+\begin{align*}
+RootType(t) &= \text{"t is the root type"} \\
+ValueOf(x, f) &= \text{"x is a value of f"} \\
+TokenOf(x, t) &= \text{"x is a token of t"}
+\end{align*}
+
+\noindent
+The following formulae state the properties of these newly introduced constructs:
+
+\begingroup
+\allowdisplaybreaks
+\vspace{-.5cm}
+\begin{gather*}
+\forall t(RootType(t) \Rightarrow Type(t)) \\
+\exists! t(RootType(t)) \\
+\forall t(Prim(t) \Rightarrow \exists x(TokenOf(x, t))) \\
+\forall t(Comp(t) \Rightarrow \nexists x(TokenOf(x, t))) \\
+\forall f(SinField(f) \Rightarrow \exists! x(ValueOf(x, f))) \\
+\forall f(OptField(f) \Rightarrow \forall x \forall y(ValueOf(x, f) \land ValueOf(y, f) \Rightarrow x = y)) \\
+\forall x \forall f(ValueOf(x, f) \Rightarrow Field(f)) \\
+\forall x \forall f \forall t(ValueOf(x, f) \land TypeOf(t, f) \land Comp(t) \Rightarrow Ctor(x) \land CtorOf(c, t)) \\
+\forall x \forall f \forall t(ValueOf(x, f) \land TypeOf(t, f) \land Prim(t) \Rightarrow TokenOf(x, t)) \\
+\forall x \forall t(TokenOf(x, t) \Rightarrow Type(t))
+\end{gather*}
+\endgroup
+
+\noindent
+It can be seen that the ASDL description defines exactly when a constructor can be the value of a field, however, it doesn't state anything about the tokens corresponding to a primitive type. Consider that information implicitly given for any ASDL description, for example by an external source. The root type of an ASDL description is the first type defined as part of it.
+
+\textbf{\textsc{ASDL-based AST}}\ \ \ An ASDL-based abstract syntax tree is a directed tree graph with a single root node. Its inner vertices are constructors, while its leaves are either fieldless constructors or tokens. The root node is a constructor of the grammar's root type. Each inner node has a number of fields, and each of its fields has a number of values (based on their cardinality). These values are edges pointing to a constructor node or a token node, matching the field's type.
+
+\textbf{\textsc{Completeness}}\ \ \ Such an AST is completed if all of its fields are completed. Single fields are completed if they have exactly one value, optional fields are completed if they have one value or they have no value and have been explicitly flagged as completed, and sequential fields are completed if they have been flagged as completed.
+
+\subsubsection{ASDL-based AST Constructing Actions}
+
+$\tau_{1}$ defines a mapping between the ASDL-based ASTs introduced in the previous section and a sequence of tree constructing actions. The set of these action sequences serves as the intermediate meaning representation $IMR$ for solving the problem. The following tree constructing actions are defined on a given ASDL-based AST $\alpha$:
+
+\textbf{\textsc{ApplyCtor}}\ \ \ An $\textsc{ApplyCtor}(c)$ action takes a constructor $c$ defined in the ASDL grammar and appends a corresponding new node to $\alpha$'s leftmost incomplete field. The precondition of this action is the existence of an incomplete field in $\alpha$, the leftmost of which is $f$, and that $c$ matches the type of $f$.
+
+\textbf{\textsc{GenToken}}\ \ \ A $\textsc{GenToken}(s)$ action has the same effect and precondition as \textsc{ApplyCtor}, but instead of a constructor, it appends a token.
+
+\textbf{\textsc{Reduce}}\ \ \ A $\textsc{Reduce}()$ action explicitly flags $\alpha$'s leftmost incomplete field as complete. The precondition of this action is the existence of an incomplete field in $\alpha$, the leftmost of which is $f$, and that $f$ either has a sequential cardinality or an optional cardinality and no values.
+
+Due to the transition system, action sequences that generate a completed AST have a one-to-one correspondence with the elements of $FMR$, and the ones that generate an incomplete AST have a one-to-one correspondence with the elements of $V \setminus FMR$. This property is utilized by the heuristic solution algorithm that solves the previously defined path-search formulation of the intent parsing problem.
+
+\section{Heuristic Solution}
+
+In the previous sections, the problem attempted to be solved in this paper has been specified, then it has been reformulated as a path-search problem over a graph that serves as a model of the problem, constraints have been put forward to ensure the tractability of the problem, and a transition system has been presented that offers more suitable intermediate representations for the graph model. This section will bring these together to present the method of solution.
+
+\subsection{Implementation of the Graph Model}
+
+\textbf{\textsc{Vertices and Edges}}\ \ \ The vertices of the graph are records $(a, \pi)$, where the first field is an action (with its parameter if applicable) and the second field is a parent pointer. For each vertex, the application of the actions along the path of parent pointers in reverse order constructs an ASDL-based AST. For a given vertex, edges lead to vertices whose action is valid for the source vertex's AST, and whose parent pointer leads to the source vertex.
+
+\textbf{\textsc{Online Building}}\ \ \ The graph model is built and explored in an online fashion by the algorithm according to the ASDL grammar. The starting node is the empty action sequence. The first action is a constructor application corresponding to the grammar's root type. A new vertex with an edge leading there is constructed for each candidate constructor application action. For each node, its children vertices are determined by the constructor/token values corresponding to its fields' types and an occasional \textsc{Reduce} action.
+
+\textbf{\textsc{Frontier Field}}\ \ \ During construction, the AST corresponding to the presently expanded vertex and its leftmost incomplete field is being tracked to avoid the costly construction and traversal of the tree at every expansion. These are updated after every action application and backtracked when a branch has been explored.
+
+\textbf{\textsc{Isomorphism to $G$}}\ \ \ The above described graph is isomorphic to the original problem model graph $G$ described during the path-search formulation. The transition system serves as the bijection between their vertex sets, which is edge-preserving because the actions correspond to the derivability relations that constitute $G$'s edges.
+
+\textbf{\textsc{Termination Constraints}}\ \ \ The fact that any action irrevocably modifies the AST it is applied to ensures that this graph is a tree, therefore it can't contain loops. The problem of infinite width and infinite depth is avoided in this model by applying only a maximum number of actions and backtracking when that depth limit is exceeded. In a finite grammar, a finite number of actions can only construct ASTs that correspond to sentential forms of finite length, therefore it is true that $\forall \alpha \in V : len(\alpha) < |\mathbb{N}_{0}|$. The grammar's finite number of terminal symbols are stored in a non-generative vocabulary and adhere to Python's lexical specifications for tokens.
+
+\subsection{Graph-Search Algorithm}
+
+The algorithm used to solve the path-seach problem on the data structure defined in the previous section is beam search. Beam search is a variation of the breadth-first search algorithm, where after visiting a node, not all of its out-edges are stored for later visitation, but instead at max a predetermined number of them. This bound is called the beam size, and is usually notated with $\beta$.
+
+Beam search sorts the available out-edges based on their labels, and selects the most promising candidates (therefore making it a greedy algorithm). To decide which out-edges to discard, the algorithm makes use of a heuristic, in this case, a neural network.
+
+\section{Neural Network}
+
+Heuristics can be used for many purposes in path-search algorithms. In the current case, the heuristic used is a neural network whose predictions serve the two requirements of the beam search algorithm: determine when a solution has been reached, and label the out-edges of a vertex in proportion to how promising following that edge seems to be in order to find a solution. Neither of these objectives have a straightforward algorithmic solution, so it is better to use a probabilistic approach, as described below.
+
+\subsection{Probabilistic Formulation}
+
+Due to the nature of $\varphi$, it is not always clear for every $q$ and $r$ if $(q,r) \in \varphi$. Even if membership is taken to be unequivocally determinable, it is practically impossible to provide an algorithm that can calculate this $\varphi$ exactly. Rather, a more appropriate task to solve is to say that $(q,r) \in \varphi$ can be estimated to be true with a certain confidence (given as a probability), which leaves room for error.
+
+This requires a new formulation of the problem, which is not exactly equivalent to the original. Consider the set of relations $\Phi_{\varphi} \subseteq \wp(NLQ \times FMR \times [0,1])$, where for the given $\varphi$, the following properties hold for all $\varphi' \in \Phi_{\varphi}$:
+
+\begin{itemize}[noitemsep]
+	\item $\forall q \in D_{\varphi} : \{ r \in FMR \ | \ (q,r,p) \in \varphi' \} = FMR$
+	\item $\forall (q, r) \in \varphi : |\{ p \in [0,1] \ | \ (q,r,p) \in \varphi' \}| = 1 $
+\end{itemize}
+
+The above description defines $\Phi$ to be the set of all functions $\varphi' : NLQ \times FMR \to [0,1]$ where for a given query $q \in NLQ$ a representation $r$ corresponds to $q$ with a probability $p$ if $(q,r,p) \in \varphi'$. Now consider $\varphi^{*} \in \Phi_{\varphi}$ that satisfies the following:
+
+\begin{itemize}[noitemsep]
+	\item $\forall (q,r) \in \varphi : (q, r, p) \in \varphi^{*} \iff p = 1$
+	\item $\forall (q,r) \notin \varphi : (q, r, p) \in \varphi^{*} \iff p = 0$
+\end{itemize}
+
+It is easy to see that $\varphi^{*}$ can be considered an extension of $\varphi$, and that the method of extension is trivial and reversible. For any other $\varphi' \in \Phi_{\varphi} \setminus \{\varphi^{*}\}$, there are multiple ways to define the reduction (projection) to $NLQ \times FMR$, but the result can't be guaranteed to be equal to $\varphi$.
+
+One method is to set a boundary $p_{0} \in [0,1]$, and having $\{ (q, r) \ | \ (q,r,p) \in \varphi' \land p \geq p_{0} \}$ as the projection. By lowering $p_{0}$, more and more representations can be accepted as valid, which increases the chance of finding one that is actually correct, increases the chance of finding all valid representations, but also accepts more false positives.
+
+Another approach is to have $\{ (q,r) \ | \ (q,r,p) \in \varphi' \land \forall (q, r_{1}, p_{1}) \in \varphi' : p_{1} \leq p \}$. This selects for every $q$ the representations whose probabilities are maximal. This returns fewer false positives, however, it is very unlikely to find all correct representations, and has trouble realizing when no representation corresponds to a query, because it selects at least one even if the probabilities are very low.
+
+\subsection{The Role of the Neural Network}
+
+Provided with the previously formulated $\varphi^{*} : NLQ \times FMR \to [0,1]$ relation that captures the original intent parsing task, a neural network is used to learn an algorithm that calculates a mapping $f : \Theta \times NLQ \times FMR \to [0,1]$, with a parameter vector $\theta \in \Theta$, where $\forall q, r : (\theta, q, r, p_{f}) \in f \land (q, r, p_{\varphi^{*}}) \in \varphi^{*} \Rightarrow p_{f} \approx p_{\varphi^{*}}$.
+
+The neural network learns in a supervised, inductive fashion, by optimizing its $\theta$ parameters to best fit the training data, a list of $(q_{n}, r_{n}, 1) \in \varphi^{*}$, $n = 1, ..., N$ examples (all other $q$, $r$ values are implicitly assumed to have probability $0$, although the neural network does not train on non-examples). The optimization is formalized as minimizing the following expression by changing $\theta$:
+
+$$\frac{1}{N} \sum_{n = 1}^{N}( \ell(f(\theta, q_{n}, r_{n}), p_{n}) )$$
+
+In the following sections the details of the above expression are presented: what the $f$ function is, what are its $\theta$ parameters, how minimization is performed, and how the loss function $\ell$ is calculated.
+
+\subsection{Neural Network Architecture}
+
+\subsubsection{Decomposition of $f$}
+
+Let $Q$ denote the event that the input query is $q$. Let $R$ denote the event that the output representation $r$ is correct. The probability of $r$ corresponding to $q$ is captured by $\varphi^{*}$: $p(R|Q) = \varphi^{*}(q,r)$.
+
+This conditional probability can be factorised using the structure of $r$ as a sequence of ASDL abstract syntax tree constructing actions $a = a_{1}, ..., a_{|a|}$, as specified by the transition system: $r = \tau(a)$. Due to the fact that the transition system produces equivalent representations, $R$ occurs if and only if the action sequence $a$ is correct, let which event be denoted by $A$.
+
+The decomposition of the probability $p(A|Q)$ is achievable by considering that $a$ is correct if and only if all of its actions $a_{t}$ are also correct, let which events be denoted by $A_{t}$. An action $a_{t}$ being valid means that the subgraph led to by the out-edge corresponding to that action contains a valid vertex. This is equivalent to saying that there exists a correct sequence of actions whose prefix is the sequence of actions leading up to and including that $a_{i}$ action.
+
+To summarize: $\varphi^{*}(q,r) = p(R|Q) = p(A|Q) = p(\cap_{t=1}^{|a|} A_{t}|Q)$. This latter expression can be expanded by applying the probability chain rule:
+
+$$p(\cap_{i=t}^{|a|} A_{t}|Q) = \prod_{t=1}^{|a|} p(A_{t} | \cap_{i=1}^{t-1} A_{i} \cap Q)$$
+
+The right hand side of that equation is the form used by the neural network for making predictions. This way, both of the heuristic purposes required by the beam search can be served with the same technique: predicting the probability of following an edge (action) based on the previous edges (actions) leading up to that point will be suitable for labeling the out-edges of a vertex, while multiplying these action probabilities together will be suitable for determining a probability of a leaf node being a correct solution.
+
+\subsubsection{Encoder}
+
+Provided with the input natural language query $q$ decomposed as a sequence of words $q = w_{1}...w_{|q|}$, the first stage of the neural network is an encoder which encodes $q$'s information in a hidden state vector $\mathbf{h} = \{\mathbf{h}_{i}\}_{i=1..|q|}$, where $\mathbf{h}_{i} \in \mathbb{R}$ corresponds to the $i$-th input word $w_{i}$ in $q$.
+
+The encoding is produced by a bidirectional LSTM, which goes over $q$ first in a forward, then in a backward order. The results are the partial hidden state components $\overrightarrow{\mathbf{h}}_{i} = \overrightarrow{f_{LSTM}}(\mathbf{w}_{i}, \overrightarrow{\mathbf{h}}_{i-1})$ and $\overleftarrow{\mathbf{h}}_{i} = \overleftarrow{f_{LSTM}}(\mathbf{w}_{i}, \overleftarrow{\mathbf{h}}_{i-1})$. $\mathbf{w}_{i}$ denotes the embedding of the $i$-th word $w_{i}$, which is the index of the word in the vocabulary, or if the word is not in the vocabulary, the index representing unknowns ($<unk>$). The $i$-th component of the final hidden state is the concatenation of these two partial hidden state components: $\mathbf{h}_{i} = [\overrightarrow{\mathbf{h}}_{i} : \overleftarrow{\mathbf{h}}_{i}]$.
+
+\subsubsection{Decoder}
+
+The decoder component of the neural network takes the hidden state vector $\mathbf{h}$ produced by the encoder, as well as the input query $q$, and predicts the probability of an action $a_{t}$ being correct.
+
+As explained in the decomposition of $f$, this probability is conditional to the previous actions applied up to that point. This is reflected by the decoder by maintaining an internal hidden state, $s_{t}$ at each time step that is calculated using the previous actions. This $s_{t}$ will be used when computing the action probabilities. The exact formula is as follows:
+
+$$s_{t} = f_{LSTM}([a_{t-1} : \tilde{s_{t}}], s_{t-1})$$
+
+\textbf{\textsc{Action Embedding}}\ \ \ $a_{t-1}$ is the embedding of the previous action. Two embedding matrices are maintained, $\textbf{W}_{R}$ and $\textbf{W}_{G}$. Each row in $\textbf{W}_{R}$, except for the last one is an embedding vector for an \textsc{ApplyRule} action. The last row stands for the \textsc{Reduce} action, hence it is handled as if it was a special \textsc{ApplyRule} action. $\textbf{W}_{G}$ contains rows for the token generation actions. Actions of the same type are differentiated by their parameter constructors/tokens, so as many \textsc{ApplyRule} actions exist as many constructors there are. The \textsc{GenToken} actions have parameters that correspond to the words in the vocabulary as well as the input sequence's tokens.
+
+\textbf{\textsc{Attentional Vector}}\ \ \ $\tilde{s_{t}}$ is the attentional vector calculated by $\tilde{s_{t}} = \text{tanh}(\textbf{W}_{c}[\textbf{c}_{t} : \textbf{s}_{t}])$.    
+
+\section{Experiments}
+    \subsection{Data sets}
+        Two data sets have been generated to train the neural network. For one only the \refThis{fig:a-rule}{a-rule} has been used without any grammatical information and for the other we used methods detailed in \refThis{sec:task}{Sec.}. Two separate data-set have been used because we wanted to know how it will effect the trained model. Using BNF grammar based tasks can help the training process because it is easy to recognize patterns between the task and its code, but a lot of additional information can be lost, information that may help recognize patterns in the tasks. Also it is important that our model usable, therefore using realistic examples is maybe better, even if it means adding noise to our tasks.   
+        
+        \subsection{Results}
+        Both of our models have been tested on different data sets. For BNF based and realistic test data the same methods have been used as described in \refThis{fig:a-rule}{a-rule} and \refThis{sec:task}{Sec.}. For real data some of the final exams tasks have been used from earlier years. These tasks are made of multiple subtask, which usually can be solved by using one of the programming patterns. 
+        \begin{table}[h]
+            \normalsize
+            \centering
+            \begin{tabular}{l|c|c}		 
+            Data sets  &
+            BNF  model &
+            Metric \\	
+            \hline
+            BNF based data set & 1.0 & Corpus BLEU \\
+            Realistic data set & 0.49 & Corpus BLEU \\
+            Real data & ... & ...\\
+            \end{tabular}
+            \caption{Model accuracy on different data sets.}
+            \label{model_acc}
+        \end{table}
+
+\section{Conclusion}
+    \blindtext[1]
+    \subsection*{Acknowledgements}
+      This  material  is  based  upon  work  supported  by the Emberi Erőforrás Operatív Program. We would like to thank Tibor Gregorics, Pintér Balázs and Teréz Várkonyi for helpful discussions.
+
+\bibliography{cites} 
+\bibliographystyle{ieeetr}
+
+\newpage
+
+\begin{appendices}
+    \section{Our BNF grammar:}\label{bnf_grammar}
+    \begingroup \fontsize{10pt}{9pt}\selectfont
+    \begin{verbatim}
+    <root>       ::= <sentence>
+    <sentence>   ::= <algorithms>
+    <algorithms> ::= <algorithm>[<algorithm_conjunction>].[<algorithms>]
+    <algorithm>  ::= <indicator>[<item_property>]<item>[<conditional>]
+                    <containing>
+    <indicator>  ::= "Sum" | "Decide" | "Select" | "Search" | "Count" |
+                     "Maximum" | "Assort"
+    <item_property> ::= <identifier> <conjunctive>
+    <conjunctive>   ::= "of"
+    <item>          ::= <identifier>
+    <conditional>   ::= "where".<conditions>
+    <conditions>    ::= <condition><conditional_conjuction>.
+                        [<conditions>]
+    <conditional_conjuction> ::= "and" | "or" | "not" | "and not" |
+                                 "or not" | ""
+    <condition> ::= <identifier> <relation> <rhs>
+    <relation>  ::= <equality> | <comparison>
+    <equality>  ::= <equal> | <nequal>
+    <equal>  ::= "is" | "equals" | "=" | "==" | "is equal to"
+    <nequal> ::= "is not" | "isn’t" | "!=" | "<>" | "is not equal to"
+                 "not equals"
+    <comparison> ::= { <comp_less> | <comp_more> | <comp_less_e> |
+                       <comp_more_e> } [<than>]
+    <than>      ::= "than"
+    <comp_less> ::= ["is"]{"less" | "smaller" | "lower" | "<" }
+    <comp_more> ::= ["is"]{"more"| "bigger" | "larger" | "greater" |
+                    ">"}
+    <comp_less_e> ::= ["is"]{"less than or equal to" | "<=" | "at most"}
+    <comp_more_e> ::= ["is"]{"more than or equal to" | ">=" | "at least"}
+    <containing>  ::= "in" . <container>
+    <container>   ::= <identifier>
+    <rhs>         ::= <characters>
+    <algorithm_conjunction> ::= "within" | "after" | ""
+    <identifier> ::= <characters>
+    <characters> ::= <characters><character> | <character>
+    <character>  ::= "a".."z" | "A".."Z" | "0".."9"  
+\end{verbatim}  
+\endgroup
+\end{appendices}
+
+\end{document}
